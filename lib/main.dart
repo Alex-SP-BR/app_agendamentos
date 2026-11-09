@@ -7,15 +7,33 @@ import 'core/theme/theme_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initializeDateFormatting('pt_BR');
+
+  // 1. Inicializa o formato de data com tratamento de erro
+  try {
+    await initializeDateFormatting('pt_BR').timeout(const Duration(seconds: 5));
+  } catch (e) {
+    debugPrint('Erro ao inicializar data formatting: $e');
+  }
+
+  // 2. Carrega o tema com proteção contra travamento
   final themeController = ThemeController();
-  await themeController.load();
+  try {
+    await themeController.load().timeout(const Duration(seconds: 5));
+  } catch (e) {
+    debugPrint('Erro ao carregar tema: $e');
+  }
 
-  await Supabase.initialize(
-    url: 'https://zsqiauvdwjvubwavzone.supabase.co',
-    publishableKey: 'sb_publishable_3N_fc-XUAgccULeHlHQiBw_tvAnOsCx',
-    authOptions: const FlutterAuthClientOptions(detectSessionInUri: true),
-  );
+  // 3. Inicializa o Supabase com timeout de rede
+  try {
+    await Supabase.initialize(
+      url: 'https://zsqiauvdwjvubwavzone.supabase.co',
+      publishableKey: 'sb_publishable_3N_fc-XUAgccULeHlHQiBw_tvAnOsCx',
+      authOptions: const FlutterAuthClientOptions(detectSessionInUri: true),
+    ).timeout(const Duration(seconds: 10));
+  } catch (e) {
+    debugPrint('Erro crítico ao inicializar Supabase: $e');
+  }
 
+  // Garante que o app sempre inicia a interface, mesmo se houver falhas nas etapas acima
   runApp(SalonApp(themeController: themeController, supabaseConfigured: true));
 }
