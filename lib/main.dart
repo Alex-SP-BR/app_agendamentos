@@ -32,8 +32,8 @@ Future<void> main() async {
     ).timeout(const Duration(seconds: 10));
   } catch (e) {
     debugPrint('Erro crítico ao inicializar Supabase: $e');
+    rethrow;
   }
 
-  // Garante que o app sempre inicia a interface, mesmo se houver falhas nas etapas acima
   runApp(SalonApp(themeController: themeController, supabaseConfigured: true));
 }

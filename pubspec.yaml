@@ -2,7 +2,7 @@ name: agenda_pro
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ^3.13.5
@@ -35,3 +35,7 @@ flutter_launcher_icons:
   android: true
   ios: true
   adaptive_icon_background: "#FFFFFF"
+
+dependency_overrides:
+  # Keep compatibility with android.builtInKotlin=false and avoid the JNI backend.
+  shared_preferences_android: 2.4.23

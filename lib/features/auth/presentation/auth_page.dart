@@ -67,13 +67,16 @@ class _AuthPageState extends State<AuthPage> {
           password: _passwordController.text,
         );
       }
-    } catch (_) {
-      if (mounted) {
+    } catch (e) {
+      if (_creatingAccount) {
+        debugPrint('ERRO_CADASTRO: $e');
+        if (mounted) {
+          _showError('ERRO_CADASTRO: $e');
+        }
+      } else if (mounted) {
         _showError(
-          _creatingAccount
-              ? 'Não foi possível criar a conta. Verifique os dados e tente novamente.'
-              : 'Não foi possível iniciar sessão. Verifique o e-mail e a '
-                    'palavra-passe e tente novamente.',
+          'Não foi possível iniciar sessão. Verifique o e-mail e a '
+          'palavra-passe e tente novamente.',
         );
       }
     } finally {
@@ -133,97 +136,104 @@ class _AuthPageState extends State<AuthPage> {
                 padding: const EdgeInsets.all(24),
                 child: Form(
                   key: _formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Icon(
-                        Icons.spa,
-                        size: 48,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        _creatingAccount ? 'Crie sua conta' : 'Bem-vindo(a)',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
-                      if (widget.authErrorMessage != null) ...[
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Icon(
+                          Icons.spa,
+                          size: 48,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                         const SizedBox(height: 12),
                         Text(
-                          widget.authErrorMessage!,
+                          _creatingAccount ? 'Crie sua conta' : 'Bem-vindo(a)',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
-                          ),
+                          style: Theme.of(context).textTheme.headlineSmall,
                         ),
-                      ],
-                      const SizedBox(height: 24),
-                      if (_creatingAccount) ...[
+                        if (widget.authErrorMessage != null) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            widget.authErrorMessage!,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                        if (_creatingAccount) ...[
+                          TextFormField(
+                            controller: _nameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Nome',
+                            ),
+                            validator: (value) =>
+                                value == null || value.trim().isEmpty
+                                ? 'Informe seu nome'
+                                : null,
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                         TextFormField(
-                          controller: _nameController,
-                          decoration: const InputDecoration(labelText: 'Nome'),
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: const InputDecoration(
+                            labelText: 'E-mail',
+                          ),
                           validator: (value) =>
-                              value == null || value.trim().isEmpty
-                              ? 'Informe seu nome'
+                              value == null || !value.contains('@')
+                              ? 'Informe um e-mail válido'
                               : null,
                         ),
                         const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: true,
+                          decoration: const InputDecoration(labelText: 'Senha'),
+                          validator: (value) =>
+                              value == null || value.length < 6
+                              ? 'Use pelo menos 6 caracteres'
+                              : null,
+                        ),
+                        const SizedBox(height: 20),
+                        FilledButton(
+                          onPressed: _loading ? null : _submit,
+                          child: Text(
+                            _loading
+                                ? 'Aguarde...'
+                                : _creatingAccount
+                                ? 'Criar conta'
+                                : 'Entrar',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: _loading ? null : _signInWithGoogle,
+                          icon: const Icon(Icons.g_mobiledata, size: 28),
+                          label: const Text('Entrar com o Google (Gmail)'),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Sua sessão permanece salva neste dispositivo.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        TextButton(
+                          onPressed: _loading
+                              ? null
+                              : () => setState(
+                                  () => _creatingAccount = !_creatingAccount,
+                                ),
+                          child: Text(
+                            _creatingAccount
+                                ? 'Já tenho uma conta'
+                                : 'Criar uma conta',
+                          ),
+                        ),
                       ],
-                      TextFormField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(labelText: 'E-mail'),
-                        validator: (value) =>
-                            value == null || !value.contains('@')
-                            ? 'Informe um e-mail válido'
-                            : null,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: true,
-                        decoration: const InputDecoration(labelText: 'Senha'),
-                        validator: (value) => value == null || value.length < 6
-                            ? 'Use pelo menos 6 caracteres'
-                            : null,
-                      ),
-                      const SizedBox(height: 20),
-                      FilledButton(
-                        onPressed: _loading ? null : _submit,
-                        child: Text(
-                          _loading
-                              ? 'Aguarde...'
-                              : _creatingAccount
-                              ? 'Criar conta'
-                              : 'Entrar',
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: _loading ? null : _signInWithGoogle,
-                        icon: const Icon(Icons.g_mobiledata, size: 28),
-                        label: const Text('Entrar com o Google (Gmail)'),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Sua sessão permanece salva neste dispositivo.',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      TextButton(
-                        onPressed: _loading
-                            ? null
-                            : () => setState(
-                                () => _creatingAccount = !_creatingAccount,
-                              ),
-                        child: Text(
-                          _creatingAccount
-                              ? 'Já tenho uma conta'
-                              : 'Criar uma conta',
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
