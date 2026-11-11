@@ -28,6 +28,7 @@ class _AuthPageState extends State<AuthPage> {
   final _passwordController = TextEditingController();
   bool _creatingAccount = false;
   bool _loading = false;
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -190,8 +191,20 @@ class _AuthPageState extends State<AuthPage> {
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: _passwordController,
-                          obscureText: true,
-                          decoration: const InputDecoration(labelText: 'Senha'),
+                          obscureText: _obscurePassword,
+                          decoration: InputDecoration(
+                            labelText: 'Senha',
+                            suffixIcon: IconButton(
+                              onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                              ),
+                            ),
+                          ),
                           validator: (value) =>
                               value == null || value.length < 6
                               ? 'Use pelo menos 6 caracteres'

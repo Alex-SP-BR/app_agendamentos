@@ -27,6 +27,8 @@ class TeamMemberAccessPage extends StatefulWidget {
 
 class _TeamMemberAccessPageState extends State<TeamMemberAccessPage> {
   final _pinController = TextEditingController();
+  final _pinFocusNode = FocusNode();
+  bool _obscurePin = true;
   TeamMemberAccessSession? _session;
   List<TeamMemberAgendaItem> _appointments = [];
   List<SalonClient> _clients = [];
@@ -46,6 +48,7 @@ class _TeamMemberAccessPageState extends State<TeamMemberAccessPage> {
   @override
   void dispose() {
     _pinController.dispose();
+    _pinFocusNode.dispose();
     super.dispose();
   }
 
@@ -312,13 +315,31 @@ class _TeamMemberAccessPageState extends State<TeamMemberAccessPage> {
           const SizedBox(height: 12),
           if (session == null) ...[
             TextField(
+              key: ValueKey(_obscurePin),
               controller: _pinController,
-              obscureText: true,
+              focusNode: _pinFocusNode,
+              obscureText: _obscurePin,
               keyboardType: TextInputType.number,
               maxLength: 12,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'PIN de acesso',
                 helperText: 'Use o PIN de 6 a 12 dígitos fornecido pelo salão.',
+                suffixIcon: IconButton(
+                  onPressed: () {
+                    final shouldRestoreFocus = _pinFocusNode.hasFocus;
+                    setState(() => _obscurePin = !_obscurePin);
+                    if (shouldRestoreFocus) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted && _pinFocusNode.canRequestFocus) {
+                          _pinFocusNode.requestFocus();
+                        }
+                      });
+                    }
+                  },
+                  icon: Icon(
+                    _obscurePin ? Icons.visibility : Icons.visibility_off,
+                  ),
+                ),
               ),
               onSubmitted: (_) => _loadAgenda(),
             ),
