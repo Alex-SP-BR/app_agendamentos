@@ -212,6 +212,7 @@ begin
     from public.agendamentos a
     join public.servicos s on s.id = a.servico_id
     where a.profissional_id = new.profissional_id
+      and a.team_member_id = new.team_member_id
       and a.status in ('pendente', 'confirmado')
       and a.data_hora_inicio <
         (new.data_hora_inicio + make_interval(mins => v_duracao))
