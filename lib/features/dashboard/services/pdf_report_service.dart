@@ -9,6 +9,10 @@ class PdfReportService {
   Future<void> export(FinancialSummary summary) async {
     final document = pw.Document();
     final currency = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
+    final reportMonth = DateFormat(
+      'MMMM yyyy',
+      'pt_BR',
+    ).format(summary.reportMonth);
     final serviceDetails = <String, Map<String, Map<int, int>>>{};
     for (final appointment in summary.appointments) {
       final service = appointment['servico']?.toString() ?? 'Serviço';
@@ -177,8 +181,13 @@ class PdfReportService {
             'Gerado em ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
           ),
           pw.SizedBox(height: 16),
-          pw.Text('Ganhos da semana: ${currency.format(summary.weekTotal)}'),
-          pw.Text('Ganhos do mês: ${currency.format(summary.monthTotal)}'),
+          pw.Text(
+            'Ganhos do período: ${currency.format(summary.monthTotal)}',
+          ),
+          pw.Text(
+            'Ganhos do mês de $reportMonth: '
+            '${currency.format(summary.monthTotal)}',
+          ),
           pw.SizedBox(height: 24),
           pw.Header(level: 1, child: pw.Text('Ganhos por profissional')),
           pw.TableHelper.fromTextArray(

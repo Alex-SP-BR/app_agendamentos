@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart' as intl;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:agenda_pro/app/app.dart';
@@ -66,8 +67,34 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Esta semana'), findsOneWidget);
-    expect(find.text('Este mês'), findsOneWidget);
+    expect(find.text('Período selecionado'), findsOneWidget);
+    expect(find.text('Mês selecionado'), findsOneWidget);
+    final reportPeriodDropdown = find.byType(DropdownButton<DateTime>);
+    final dropdown = tester.widget<DropdownButton<DateTime>>(
+      reportPeriodDropdown,
+    );
+    expect(dropdown.items, hasLength(4));
+
+    final currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
+    final previousMonth = DateTime(currentMonth.year, currentMonth.month - 1);
+    final previousMonthLabel = intl.DateFormat(
+      'MMMM yyyy',
+      'pt_BR',
+    ).format(previousMonth);
+    await tester.tap(reportPeriodDropdown);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.text(
+        '${previousMonthLabel[0].toUpperCase()}'
+        '${previousMonthLabel.substring(1)}',
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<DropdownButton<DateTime>>(reportPeriodDropdown).value,
+      previousMonth,
+    );
+
     await tester.scrollUntilVisible(
       find.text('Agenda do salão'),
       300,

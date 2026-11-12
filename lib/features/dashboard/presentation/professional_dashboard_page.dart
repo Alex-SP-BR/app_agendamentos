@@ -58,6 +58,8 @@ class _ProfessionalDashboardPageState extends State<ProfessionalDashboardPage> {
   late Future<List<TeamMember>> _teamMembersFuture;
   late Future<FinancialSummary> _summaryFuture;
   late Future<List<SubscriptionProfile>> _subscriptionProfilesFuture;
+  late List<DateTime> _reportMonths;
+  late DateTime _selectedReportMonth;
   DateTime _selectedDay = DateTime.now();
 
   @override
@@ -69,6 +71,12 @@ class _ProfessionalDashboardPageState extends State<ProfessionalDashboardPage> {
   @override
   void initState() {
     super.initState();
+    final currentMonth = DateTime.now();
+    _reportMonths = List.generate(
+      4,
+      (index) => DateTime(currentMonth.year, currentMonth.month - index),
+    );
+    _selectedReportMonth = _reportMonths.first;
     _refresh();
   }
 
@@ -86,10 +94,19 @@ class _ProfessionalDashboardPageState extends State<ProfessionalDashboardPage> {
     _teamMembersFuture = widget.salonRepository.listTeamMembers(
       widget.professionalId,
     );
+    _loadReport();
+  }
+
+  void _loadReport() {
     _summaryFuture = widget.reportRepository.load(
       widget.professionalId,
-      DateTime.now(),
+      _selectedReportMonth,
     );
+  }
+
+  String _formatReportMonth(DateTime month) {
+    final label = DateFormat('MMMM yyyy', 'pt_BR').format(month);
+    return '${label[0].toUpperCase()}${label.substring(1)}';
   }
 
   Future<void> _setSubscriptionStatus(
@@ -555,19 +572,52 @@ class _ProfessionalDashboardPageState extends State<ProfessionalDashboardPage> {
                 final summary = snapshot.data!;
                 return Column(
                   children: [
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Período:',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          const SizedBox(width: 8),
+                          DropdownButton<DateTime>(
+                            value: _selectedReportMonth,
+                            isDense: true,
+                            items: _reportMonths
+                                .map(
+                                  (month) => DropdownMenuItem<DateTime>(
+                                    value: month,
+                                    child: Text(_formatReportMonth(month)),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (month) {
+                              if (month == null) return;
+                              setState(() {
+                                _selectedReportMonth = month;
+                                _loadReport();
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
                           child: _MetricCard(
-                            title: 'Esta semana',
-                            amount: summary.weekTotal,
+                            title: 'Período selecionado',
+                            amount: summary.monthTotal,
                             icon: Icons.trending_up,
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: _MetricCard(
-                            title: 'Este mês',
+                            title: 'Mês selecionado',
                             amount: summary.monthTotal,
                             icon: Icons.account_balance_wallet_outlined,
                           ),
@@ -575,12 +625,18 @@ class _ProfessionalDashboardPageState extends State<ProfessionalDashboardPage> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => _export(summary),
-                        icon: const Icon(Icons.picture_as_pdf_outlined),
-                        label: const Text('Exportar relatório em PDF'),
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 280),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _export(summary),
+                            icon: const Icon(Icons.picture_as_pdf_outlined),
+                            label: const Text('Exportar relatório em PDF'),
+                          ),
+                        ),
                       ),
                     ),
                   ],
