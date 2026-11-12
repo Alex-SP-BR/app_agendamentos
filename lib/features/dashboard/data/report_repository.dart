@@ -73,6 +73,8 @@ class ReportRepository {
         }
         reportRows.add({
           'servico': service?['titulo'] as String? ?? 'Serviço',
+          'profissional':
+              memberNames[teamMemberId] ?? 'Profissional não identificado',
           'valor': value,
           'status': row['status'] as String,
         });
