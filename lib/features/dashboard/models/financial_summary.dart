@@ -1,12 +1,14 @@
 class FinancialSummary {
   const FinancialSummary({
     required this.reportMonth,
+    required this.weekTotal,
     required this.monthTotal,
     required this.appointments,
     required this.teamMemberEarnings,
   });
 
   final DateTime reportMonth;
+  final double weekTotal;
   final double monthTotal;
   final List<Map<String, Object>> appointments;
   final List<TeamMemberEarning> teamMemberEarnings;

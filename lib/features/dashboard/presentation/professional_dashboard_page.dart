@@ -570,6 +570,10 @@ class _ProfessionalDashboardPageState extends State<ProfessionalDashboardPage> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 final summary = snapshot.data!;
+                final now = DateTime.now();
+                final isCurrentMonth =
+                    summary.reportMonth.year == now.year &&
+                    summary.reportMonth.month == now.month;
                 return Column(
                   children: [
                     Align(
@@ -609,8 +613,8 @@ class _ProfessionalDashboardPageState extends State<ProfessionalDashboardPage> {
                       children: [
                         Expanded(
                           child: _MetricCard(
-                            title: 'Período selecionado',
-                            amount: summary.monthTotal,
+                            title: 'Esta semana',
+                            amount: isCurrentMonth ? summary.weekTotal : 0,
                             icon: Icons.trending_up,
                           ),
                         ),

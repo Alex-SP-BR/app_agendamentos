@@ -67,8 +67,21 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Período selecionado'), findsOneWidget);
+    expect(find.text('Esta semana'), findsOneWidget);
     expect(find.text('Mês selecionado'), findsOneWidget);
+    final weeklyCard = find.ancestor(
+      of: find.text('Esta semana'),
+      matching: find.byType(Card),
+    );
+    expect(
+      tester
+          .widgetList<Text>(
+            find.descendant(of: weeklyCard, matching: find.byType(Text)),
+          )
+          .last
+          .data,
+      contains('485'),
+    );
     final reportPeriodDropdown = find.byType(DropdownButton<DateTime>);
     final dropdown = tester.widget<DropdownButton<DateTime>>(
       reportPeriodDropdown,
@@ -93,6 +106,15 @@ void main() {
     expect(
       tester.widget<DropdownButton<DateTime>>(reportPeriodDropdown).value,
       previousMonth,
+    );
+    expect(
+      tester
+          .widgetList<Text>(
+            find.descendant(of: weeklyCard, matching: find.byType(Text)),
+          )
+          .last
+          .data,
+      contains('0,00'),
     );
 
     await tester.scrollUntilVisible(
