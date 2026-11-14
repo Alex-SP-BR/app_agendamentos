@@ -15,9 +15,12 @@ import 'package:agenda_pro/features/appointments/models/appointment.dart';
 import 'package:agenda_pro/features/appointments/models/occupied_period.dart';
 import 'package:agenda_pro/features/appointments/presentation/appointment_card.dart';
 import 'package:agenda_pro/features/booking/presentation/public_booking_page.dart';
+import 'package:agenda_pro/features/dashboard/data/report_repository.dart';
+import 'package:agenda_pro/features/dashboard/presentation/professional_dashboard_page.dart';
 import 'package:agenda_pro/features/salon/data/salon_repository.dart';
 import 'package:agenda_pro/features/salon/models/salon_service.dart';
 import 'package:agenda_pro/features/salon/models/salon_client.dart';
+import 'package:agenda_pro/features/salon/models/team_member.dart';
 import 'package:agenda_pro/features/salon/models/team_member_access_session.dart';
 import 'package:agenda_pro/features/salon/models/team_member_agenda_item.dart';
 import 'package:agenda_pro/features/salon/presentation/clients_management_page.dart';
@@ -289,6 +292,81 @@ void main() {
       find.widgetWithText(FilledButton, 'Criar agendamento'),
     );
     expect(createButton.onPressed, isNull);
+  });
+
+  testWidgets('agenda badge lists open appointments for a team member', (
+    tester,
+  ) async {
+    final themeController = ThemeController();
+    await themeController.load();
+    await tester.pumpWidget(
+      SalonApp(
+        themeController: themeController,
+        supabaseConfigured: false,
+        publicAppBaseUrl: 'https://agenda.example.com',
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Agenda do salão'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('2 em aberto'), findsOneWidget);
+    await tester.tap(find.text('2 em aberto'));
+    await tester.pumpAndSettle();
+    expect(find.text('Atendimentos em aberto'), findsOneWidget);
+    expect(find.textContaining(' às '), findsNWidgets(2));
+    expect(
+      find.textContaining(intl.DateFormat('dd/MM/yyyy').format(DateTime.now())),
+      findsNWidgets(2),
+    );
+  });
+
+  testWidgets('open appointment list scrolls without overflowing', (
+    tester,
+  ) async {
+    final themeController = ThemeController();
+    await themeController.load();
+    final repository = _OpenAppointmentsRepository(
+      List.generate(
+        40,
+        (index) => DateTime(2026, 1, 1, 9).add(Duration(days: index)),
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProfessionalDashboardPage(
+          professionalId: 'demo-professional',
+          demoMode: true,
+          salonRepository: repository,
+          reportRepository: ReportRepository(client: null, demoMode: true),
+          themeController: themeController,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Agenda do salão'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('40 em aberto'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    final modalScrollable = find.descendant(
+      of: find.byType(BottomSheet),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(
+      find.textContaining('09/02/2026'),
+      100,
+      scrollable: modalScrollable,
+    );
+    expect(find.textContaining('09/02/2026'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('professional settings hides payment and package controls', (
@@ -1104,5 +1182,27 @@ class _TeamMemberAccessRepository extends SalonRepository {
   }) async {
     lastUpdatedStatus = status;
     await updateStatusCompleter?.future;
+  }
+}
+
+class _OpenAppointmentsRepository extends SalonRepository {
+  _OpenAppointmentsRepository(this.startsAt)
+    : super(client: null, demoMode: true);
+
+  final List<DateTime> startsAt;
+
+  @override
+  Future<Map<TeamMember, List<DateTime>>> listTeamMembersForAgenda(
+    String professionalId,
+  ) async {
+    return {const TeamMember(id: 'team-1', name: 'Ronaldo'): startsAt};
+  }
+
+  @override
+  Future<List<Appointment>> listAppointments(
+    String professionalId,
+    DateTime day,
+  ) async {
+    return const [];
   }
 }

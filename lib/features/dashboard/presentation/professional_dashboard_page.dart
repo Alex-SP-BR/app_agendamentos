@@ -55,7 +55,7 @@ class _ProfessionalDashboardPageState extends State<ProfessionalDashboardPage> {
   final _pdfService = PdfReportService();
   final _teamCardsScrollController = ScrollController();
   late Future<List<Appointment>> _appointmentsFuture;
-  late Future<List<TeamMember>> _teamMembersFuture;
+  late Future<Map<TeamMember, List<DateTime>>> _teamMembersFuture;
   late Future<FinancialSummary> _summaryFuture;
   late Future<List<SubscriptionProfile>> _subscriptionProfilesFuture;
   late List<DateTime> _reportMonths;
@@ -91,7 +91,7 @@ class _ProfessionalDashboardPageState extends State<ProfessionalDashboardPage> {
       return;
     }
     _loadAppointments();
-    _teamMembersFuture = widget.salonRepository.listTeamMembers(
+    _teamMembersFuture = widget.salonRepository.listTeamMembersForAgenda(
       widget.professionalId,
     );
     _loadReport();
@@ -309,6 +309,59 @@ class _ProfessionalDashboardPageState extends State<ProfessionalDashboardPage> {
     }
   }
 
+  Future<void> _showOpenAppointments(
+    TeamMember member,
+    List<DateTime> startsAt,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        final maxListHeight = MediaQuery.sizeOf(context).height * 0.55;
+        final desiredListHeight = startsAt.length * 56.0;
+        final listHeight = desiredListHeight < maxListHeight
+            ? desiredListHeight
+            : maxListHeight;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Atendimentos em aberto',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 4),
+                Text(member.name),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: listHeight,
+                  child: ListView.separated(
+                    itemCount: startsAt.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) => ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        DateFormat(
+                          "EEEE, dd/MM/yyyy 'às' HH:mm",
+                          'pt_BR',
+                        ).format(startsAt[index]),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _showTeamMemberAccessLink(TeamMember member) async {
     final String link;
     try {
@@ -458,8 +511,8 @@ class _ProfessionalDashboardPageState extends State<ProfessionalDashboardPage> {
       builder: (context) => AlertDialog(
         title: Text('Excluir ${member.name}?'),
         content: const Text(
-          'A exclusão só será permitida se não houver agendamentos vinculados. '
-          'Se existirem atendimentos, reatribua-os antes de tentar novamente.',
+          'Se houver agendamentos vinculados, o profissional será inativado '
+          'para preservar o histórico. Sem vínculos, será excluído.',
         ),
         actions: [
           TextButton(
@@ -475,11 +528,21 @@ class _ProfessionalDashboardPageState extends State<ProfessionalDashboardPage> {
     );
     if (confirmed != true || !mounted) return;
     try {
-      await widget.salonRepository.deleteTeamMember(
+      final deactivated = await widget.salonRepository.deleteTeamMember(
         professionalId: widget.professionalId,
         teamMember: member,
       );
-      if (mounted) setState(_refresh);
+      if (!mounted) return;
+      setState(_refresh);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            deactivated
+                ? 'Profissional inativado para preservar o histórico.'
+                : 'Profissional excluído.',
+          ),
+        ),
+      );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -743,7 +806,7 @@ class _ProfessionalDashboardPageState extends State<ProfessionalDashboardPage> {
   }
 
   Widget _agendaSection() {
-    return FutureBuilder<List<TeamMember>>(
+    return FutureBuilder<Map<TeamMember, List<DateTime>>>(
       future: _teamMembersFuture,
       builder: (context, membersSnapshot) {
         if (membersSnapshot.hasError) {
@@ -764,7 +827,7 @@ class _ProfessionalDashboardPageState extends State<ProfessionalDashboardPage> {
                 child: Center(child: CircularProgressIndicator()),
               );
             }
-            final members = membersSnapshot.data!;
+            final members = membersSnapshot.data!.entries.toList();
             final appointments = appointmentsSnapshot.data!;
             if (members.isEmpty) {
               return const _NoTeamMembers();
@@ -787,7 +850,9 @@ class _ProfessionalDashboardPageState extends State<ProfessionalDashboardPage> {
                     itemCount: members.length,
                     separatorBuilder: (_, _) => const SizedBox(width: 10),
                     itemBuilder: (context, index) {
-                      final member = members[index];
+                      final memberEntry = members[index];
+                      final member = memberEntry.key;
+                      final openAppointmentStartsAt = memberEntry.value;
                       final memberAppointments = appointments
                           .where(
                             (appointment) =>
@@ -818,6 +883,44 @@ class _ProfessionalDashboardPageState extends State<ProfessionalDashboardPage> {
                                         ),
                                       ),
                                     ),
+                                    if (openAppointmentStartsAt.isNotEmpty)
+                                      Tooltip(
+                                        message:
+                                            'Ver ${openAppointmentStartsAt.length} '
+                                            'agendamentos em aberto de '
+                                            '${member.name}',
+                                        child: Material(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .secondaryContainer,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          child: InkWell(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            onTap: () => _showOpenAppointments(
+                                              member,
+                                              openAppointmentStartsAt,
+                                            ),
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
+                                                  ),
+                                              child: Text(
+                                                '${openAppointmentStartsAt.length} '
+                                                'em aberto',
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .labelSmall,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                     IconButton(
                                       visualDensity: VisualDensity.compact,
                                       constraints:

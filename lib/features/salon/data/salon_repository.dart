@@ -324,6 +324,60 @@ class SalonRepository {
     return rows.map(TeamMember.fromMap).toList();
   }
 
+  Future<Map<TeamMember, List<DateTime>>> listTeamMembersForAgenda(
+    String professionalId,
+  ) async {
+    final members = await listTeamMembers(professionalId);
+    final openAppointmentsByMember = <String, List<DateTime>>{};
+    if (demoMode) {
+      for (final appointment in _demoAppointments.where(
+        (appointment) =>
+            appointment.professionalId == professionalId &&
+            (appointment.status == 'pendente' ||
+                appointment.status == 'confirmado'),
+      )) {
+        final teamMemberId = appointment.teamMemberId;
+        if (teamMemberId == null) continue;
+        openAppointmentsByMember
+            .putIfAbsent(teamMemberId, () => [])
+            .add(appointment.startsAt);
+      }
+    } else if (members.isNotEmpty) {
+      const pageSize = 500;
+      var offset = 0;
+      while (true) {
+        final appointmentRows = await client!
+            .from('agendamentos')
+            .select('id, team_member_id, data_hora_inicio')
+            .eq('profissional_id', professionalId)
+            .inFilter('status', ['pendente', 'confirmado'])
+            .order('data_hora_inicio')
+            .order('id')
+            .range(offset, offset + pageSize - 1);
+        for (final row in appointmentRows) {
+          final teamMemberId = row['team_member_id'];
+          final startsAt = row['data_hora_inicio'];
+          if (teamMemberId is! String || startsAt is! String) {
+            throw const FormatException(
+              'Dados inválidos ao carregar atendimentos em aberto.',
+            );
+          }
+          openAppointmentsByMember
+              .putIfAbsent(teamMemberId, () => [])
+              .add(DateTime.parse(startsAt).toLocal());
+        }
+        if (appointmentRows.length < pageSize) break;
+        offset += pageSize;
+      }
+    }
+
+    return {
+      for (final member in members)
+        if (member.isActive || openAppointmentsByMember.containsKey(member.id))
+          member: openAppointmentsByMember[member.id] ?? const [],
+    };
+  }
+
   Future<void> addTeamMember(String professionalId, String name) async {
     if (demoMode) {
       throw StateError('A gestão da equipa requer uma conexão com o Supabase.');
@@ -362,7 +416,7 @@ class SalonRepository {
     }
   }
 
-  Future<void> deleteTeamMember({
+  Future<bool> deleteTeamMember({
     required String professionalId,
     required TeamMember teamMember,
   }) async {
@@ -376,19 +430,42 @@ class SalonRepository {
         'O salão precisa manter ao menos um profissional ativo na equipe.',
       );
     }
+    final appointments = await client!
+        .from('agendamentos')
+        .select('id')
+        .eq('profissional_id', professionalId)
+        .eq('team_member_id', teamMember.id)
+        .limit(1);
+    if (appointments.isNotEmpty) {
+      await _deactivateTeamMember(professionalId, teamMember.id);
+      return true;
+    }
     try {
       await client!
           .from('profissionais_equipe')
           .delete()
           .eq('id', teamMember.id)
           .eq('profissional_id', professionalId);
+      return false;
     } on PostgrestException catch (error) {
-      if (error.code == '23503') {
-        throw StateError(
-          'Este profissional possui agendamentos vinculados. Reatribua-os antes de excluir.',
-        );
-      }
-      rethrow;
+      if (error.code != '23503') rethrow;
+      await _deactivateTeamMember(professionalId, teamMember.id);
+      return true;
+    }
+  }
+
+  Future<void> _deactivateTeamMember(
+    String professionalId,
+    String teamMemberId,
+  ) async {
+    final rows = await client!
+        .from('profissionais_equipe')
+        .update({'ativo': false})
+        .eq('id', teamMemberId)
+        .eq('profissional_id', professionalId)
+        .select('id');
+    if (rows.isEmpty) {
+      throw StateError('Não foi possível inativar o profissional.');
     }
   }
 
