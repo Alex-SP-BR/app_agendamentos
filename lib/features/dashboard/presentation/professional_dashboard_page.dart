@@ -184,7 +184,7 @@ class _ProfessionalDashboardPageState extends State<ProfessionalDashboardPage> {
                               onPressed: () =>
                                   _setSubscriptionStatus(profile, 'ativo'),
                               icon: const Icon(Icons.payment),
-                              label: const Text('Aprovar Pix'),
+                              label: const Text('Licença Manual'),
                             ),
                           if (profile.accessStatus != 'cortesia')
                             TextButton.icon(
