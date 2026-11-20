@@ -1,0 +1,22 @@
+name: CI - Build e Testes Flutter
+
+on:
+  push:
+    branches: [ main, develop, 'feature/**' ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - name: Instalar dependencias
+        run: flutter pub get
+      - name: Analisar codigo
+        run: flutter analyze --no-fatal-infos
+      - name: Build APK de verificacao
+        run: flutter build apk --debug
